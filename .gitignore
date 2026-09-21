@@ -1,0 +1,12 @@
+# Never commit local credentials or generated deployment material.
+*.parameters.json
+*.parameters.bicepparam
+*.pem
+*.key
+*.pfx
+*.p12
+.env
+.env.*
+__pycache__/
+.pytest_cache/
+*.pyc
