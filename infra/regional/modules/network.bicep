@@ -13,6 +13,7 @@ param appBackendPort int
 param appPeerTcpPorts array
 param healthProbePath string
 param jumpPrivateIp string
+param globalManagementVnetId string
 @secure()
 param mysqlAdministratorPassword string
 param mysqlAdministratorLogin string
@@ -47,6 +48,11 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   properties: {
     addressSpace: { addressPrefixes: [ network.regional_vnet ] }
   }
+}
+resource regionalToManagement 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2024-05-01' = {
+  parent: vnet
+  name: 'peer-app-to-global-management'
+  properties: { allowVirtualNetworkAccess: true, allowForwardedTraffic: false, allowGatewayTransit: false, useRemoteGateways: false, remoteVirtualNetwork: { id: globalManagementVnetId } }
 }
 resource appNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
   name: 'nsg-${namePrefix}-app'
@@ -158,6 +164,7 @@ resource pls 'Microsoft.Network/privateLinkServices@2024-05-01' = {
 }
 resource mysqlIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = { name: 'id-${namePrefix}-mysql', location: location, tags: tags }
 resource mysqlDns 'Microsoft.Network/privateDnsZones@2024-06-01' = { name: '${namePrefix}.mysql.database.azure.com', location: 'global', tags: tags }
+resource mysqlRegionalDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = { parent: mysqlDns, name: 'link-regional', location: 'global', tags: tags, properties: { virtualNetwork: { id: vnet.id }, registrationEnabled: false } }
 resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
   name: 'mysql-${namePrefix}'
   location: location
@@ -174,6 +181,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
     storage: { storageSizeGB: mysqlStorageGb, autoGrow: 'Enabled' }
     availabilityZone: mysqlPrimaryZone
   }
+  dependsOn: [ mysqlRegionalDnsLink ]
 }
 resource mysqlDatabase 'Microsoft.DBforMySQL/flexibleServers/databases@2023-12-30' = { parent: mysqlServer, name: mysqlDatabaseName, properties: { charset: 'utf8mb4', collation: 'utf8mb4_unicode_ci' } }
 resource mysqlTls 'Microsoft.DBforMySQL/flexibleServers/configurations@2023-12-30' = { parent: mysqlServer, name: 'require_secure_transport', properties: { value: 'ON', source: 'user-override' } }
@@ -191,4 +199,5 @@ output loadBalancerPrivateIp string = lbIp
 output outboundPublicIp string = egressPip.properties.ipAddress
 output privateLinkServiceId string = pls.id
 output mysqlServerId string = mysqlServer.id
+output mysqlPrivateDnsZoneId string = mysqlDns.id
 output mysql object = { name: mysqlServer.name, fqdn: mysqlServer.properties.fullyQualifiedDomainName, database: mysqlDatabase.name, resourceGroupName: resourceGroup().name, identityName: mysqlIdentity.name, identityPrincipalId: mysqlIdentity.properties.principalId, identityClientId: mysqlIdentity.properties.clientId, entraAuthenticationReady: mysqlEntraReady }

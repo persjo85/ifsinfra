@@ -9,12 +9,15 @@ This repository deploys a regional Azure application platform with Bicep.
 - `infra/global/` deploys shared global edge resources once: Azure Front Door
   Premium and WAF.
 
-The regional deployment produces a Private Link Service ID. Add that ID, its
-Private Link location, and its origin hostname to the global parameter file
-when onboarding a region to Front Door.
+The global deployment creates the one management VNet and jumpserver. It also
+peers that VNet with every regional VNet and creates a MySQL private-DNS link
+for each region. A regional deployment produces a `frontDoorOrigin` object;
+add it to the global parameter file when onboarding a region to Front Door.
 
-To add a region, create `infra/regional/parameters/regionN.bicepparam`, deploy
-it, then copy its `frontDoorOrigin` output into the `origins` array in
+Deploy global services first with an empty `regions` list. Copy its
+`managementVnetId` and jumpserver private IP to the regional parameter file.
+To add a region, deploy `infra/regional/parameters/regionN.bicepparam`, then
+copy its `frontDoorOrigin` output into the `regions` array in
 `infra/global/parameters/global.bicepparam`. Run a global `what-if` before
 deploying the changed Front Door configuration. The WAF policy is global and
 continues to protect every origin behind the endpoint.

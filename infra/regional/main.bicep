@@ -3,13 +3,9 @@ targetScope = 'subscription'
 @description('Stable, globally distinctive lower-case deployment prefix.')
 param namePrefix string
 param location string
-param managementLocation string = location
 param network object
 param skus object
 param sshPublicKey string
-param adminSourceCidrs array
-param vmAdminGroupObjectIds array
-param keyVaultOfficerGroupObjectIds array = []
 @secure()
 param mysqlAdministratorPassword string
 param mysqlVersion string
@@ -36,7 +32,10 @@ param vmImage object = {
   version: 'latest'
 }
 param adminUsername string = 'provisionadmin'
-param logRetentionDays int = 90
+@description('Resource ID of the global management VNet, returned by infra/global/main.bicep.')
+param globalManagementVnetId string
+@description('Private IP of the global jumpserver, returned by infra/global/main.bicep.')
+param globalJumpPrivateIp string
 @description('Front Door Private Link location for this region, for example swedencentral.')
 param frontDoorPrivateLinkLocation string = location
 @description('TLS/SNI hostname served by this region’s application origin.')
@@ -44,8 +43,6 @@ param originHostName string = ''
 param tags object = {}
 
 var regionalRgName = 'rg-${namePrefix}-regional'
-var managementRgName = 'rg-${namePrefix}-management'
-var sharedRgName = 'rg-${namePrefix}-shared'
 var commonTags = union(tags, { managed_by: 'Bicep', deployment: namePrefix })
 
 resource regionalRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
@@ -53,12 +50,6 @@ resource regionalRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   location: location
   tags: commonTags
 }
-resource managementRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: managementRgName
-  location: managementLocation
-  tags: commonTags
-}
-
 module regional 'modules/network.bicep' = {
   name: 'regional-platform'
   scope: regionalRg
@@ -75,7 +66,8 @@ module regional 'modules/network.bicep' = {
     appBackendPort: appBackendPort
     appPeerTcpPorts: appPeerTcpPorts
     healthProbePath: healthProbePath
-    jumpPrivateIp: cidrHost(network.jump_subnet, 4)
+    jumpPrivateIp: globalJumpPrivateIp
+    globalManagementVnetId: globalManagementVnetId
     mysqlAdministratorPassword: mysqlAdministratorPassword
     mysqlAdministratorLogin: mysqlAdministratorLogin
     mysqlVersion: mysqlVersion
@@ -93,33 +85,19 @@ module regional 'modules/network.bicep' = {
   }
 }
 
-module management 'modules/management.bicep' = {
-  name: 'management-platform'
-  scope: managementRg
-  params: {
-    namePrefix: namePrefix
-    location: managementLocation
-    network: network
-    skus: skus
-    sshPublicKey: sshPublicKey
-    adminUsername: adminUsername
-    vmImage: vmImage
-    osDiskSizeGb: osDiskSizeGb
-    adminSourceCidrs: adminSourceCidrs
-    tags: commonTags
-    regionalVnetId: regional.outputs.vnetId
-  }
-}
-
-output resourceGroups object = { regional: regionalRg.name, management: managementRg.name }
-output jump object = management.outputs.jump
+output resourceGroups object = { regional: regionalRg.name }
 output appVms array = regional.outputs.appVms
 output loadBalancerPrivateIp string = regional.outputs.loadBalancerPrivateIp
 output outboundPublicIp string = regional.outputs.outboundPublicIp
 output mysql object = regional.outputs.mysql
 output privateLinkServiceId string = regional.outputs.privateLinkServiceId
+output regionalVnetId string = regional.outputs.vnetId
+output mysqlPrivateDnsZoneId string = regional.outputs.mysqlPrivateDnsZoneId
 output frontDoorOrigin object = {
   regionCode: namePrefix
+  regionalResourceGroupName: regionalRg.name
+  regionalVnetId: regional.outputs.vnetId
+  mysqlPrivateDnsZoneId: regional.outputs.mysqlPrivateDnsZoneId
   privateLinkServiceId: regional.outputs.privateLinkServiceId
   privateLinkLocation: frontDoorPrivateLinkLocation
   hostName: originHostName

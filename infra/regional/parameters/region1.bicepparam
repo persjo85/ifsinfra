@@ -3,6 +3,8 @@ using '../main.bicep'
 // Copy this file to main.parameters.bicepparam. Values below are deliberately invalid placeholders.
 param namePrefix = 'fill-in-prefix'
 param location = 'swedencentral'
+param globalManagementVnetId = 'FILL_IN_GLOBAL_MANAGEMENT_VNET_RESOURCE_ID'
+param globalJumpPrivateIp = 'FILL_IN_GLOBAL_JUMPSERVER_PRIVATE_IP'
 param frontDoorPrivateLinkLocation = 'FILL_IN_SUPPORTED_PRIVATE_LINK_LOCATION'
 param originHostName = 'FILL_IN_REGION1_ORIGIN_TLS_HOSTNAME'
 param network = {
