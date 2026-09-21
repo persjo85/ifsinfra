@@ -4,21 +4,21 @@ This repository deploys a regional Azure application platform with Bicep.
 
 ## Layout
 
-- `infra/regional/` deploys one independent regional platform. Select the
-  appropriate file in `parameters/` for each region.
+- `infra/regional/` deploys one independent regional platform. Each region has
+  layered parameter files per module under `parameters/regionN/`.
 - `infra/global/` deploys shared global edge resources once: Azure Front Door
   Premium and WAF.
 
 The global deployment creates the one management VNet and jumpserver. It also
 peers that VNet with every regional VNet and creates a MySQL private-DNS link
 for each region. A regional deployment produces a `frontDoorOrigin` object;
-add it to the global parameter file when onboarding a region to Front Door.
+add it to the global Front Door parameter layer when onboarding a region.
 
 Deploy global services first with an empty `regions` list. Copy its
 `managementVnetId` and jumpserver private IP to the regional parameter file.
-To add a region, deploy `infra/regional/parameters/regionN.bicepparam`, then
-copy its `frontDoorOrigin` output into the `regions` array in
-`infra/global/parameters/global.bicepparam`. Run a global `what-if` before
+To add a region, deploy `infra/regional/parameters/regionN/regionN.bicepparam`,
+then copy its `frontDoorOrigin` output into the `regions` array in
+`infra/global/parameters/front-door.bicepparam`. Run a global `what-if` before
 deploying the changed Front Door configuration. The WAF policy is global and
 continues to protect every origin behind the endpoint.
 
@@ -46,7 +46,7 @@ az bicep build --file infra/regional/main.bicep
 az deployment sub what-if \
   --location swedencentral \
   --template-file infra/regional/main.bicep \
-  --parameters infra/regional/parameters/region1.bicepparam \
+  --parameters infra/regional/parameters/region1/region1.bicepparam \
   mysqlAdministratorPassword='REDACTED'
 ```
 
