@@ -13,6 +13,12 @@ The regional deployment produces a Private Link Service ID. Add that ID, its
 Private Link location, and its origin hostname to the global parameter file
 when onboarding a region to Front Door.
 
+To add a region, create `infra/regional/parameters/regionN.bicepparam`, deploy
+it, then copy its `frontDoorOrigin` output into the `origins` array in
+`infra/global/parameters/global.bicepparam`. Run a global `what-if` before
+deploying the changed Front Door configuration. The WAF policy is global and
+continues to protect every origin behind the endpoint.
+
 ## Before deployment
 
 Install Azure CLI and Bicep, then authenticate with an identity that can create

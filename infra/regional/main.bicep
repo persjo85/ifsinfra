@@ -37,6 +37,10 @@ param vmImage object = {
 }
 param adminUsername string = 'provisionadmin'
 param logRetentionDays int = 90
+@description('Front Door Private Link location for this region, for example swedencentral.')
+param frontDoorPrivateLinkLocation string = location
+@description('TLS/SNI hostname served by this region’s application origin.')
+param originHostName string = ''
 param tags object = {}
 
 var regionalRgName = 'rg-${namePrefix}-regional'
@@ -114,3 +118,13 @@ output loadBalancerPrivateIp string = regional.outputs.loadBalancerPrivateIp
 output outboundPublicIp string = regional.outputs.outboundPublicIp
 output mysql object = regional.outputs.mysql
 output privateLinkServiceId string = regional.outputs.privateLinkServiceId
+output frontDoorOrigin object = {
+  regionCode: namePrefix
+  privateLinkServiceId: regional.outputs.privateLinkServiceId
+  privateLinkLocation: frontDoorPrivateLinkLocation
+  hostName: originHostName
+  originHostHeader: ''
+  priority: 1
+  weight: 1000
+  enabled: true
+}

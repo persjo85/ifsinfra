@@ -2,14 +2,11 @@ targetScope = 'resourceGroup'
 
 @description('Deploy this file once for shared/global services, never once per region.')
 param namePrefix string
-@description('The approved Private Link Service resource ID from a regional deployment.')
-param privateLinkServiceId string
+@description('Regional private origins. Add one object after each regional deployment is ready.')
+param origins array
 @description('The Log Analytics workspace resource ID used by Front Door diagnostics.')
 param workspaceId string
 param healthProbePath string = '/healthz'
-param privateLinkLocation string
-param originHostName string
-param originHostHeader string = ''
 param customDomainName string = ''
 param customDomainReady bool = false
 param enablePublicRoute bool = false
@@ -22,11 +19,8 @@ module frontDoor 'modules/front-door.bicep' = {
   name: 'global-front-door'
   params: {
     namePrefix: namePrefix
-    privateLinkServiceId: privateLinkServiceId
+    origins: origins
     healthProbePath: healthProbePath
-    privateLinkLocation: privateLinkLocation
-    originHostName: originHostName
-    originHostHeader: originHostHeader
     customDomainName: customDomainName
     customDomainReady: customDomainReady
     enablePublicRoute: enablePublicRoute

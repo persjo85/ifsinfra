@@ -1,10 +1,7 @@
 targetScope = 'resourceGroup'
 param namePrefix string
-param privateLinkServiceId string
+param origins array
 param healthProbePath string
-param privateLinkLocation string
-param originHostName string
-param originHostHeader string
 param customDomainName string
 param customDomainReady bool
 param enablePublicRoute bool
@@ -15,7 +12,26 @@ param tags object
 resource profile 'Microsoft.Cdn/profiles@2024-02-01' = { name: 'afd-${namePrefix}', sku: { name: 'Premium_AzureFrontDoor' }, tags: tags }
 resource endpoint 'Microsoft.Cdn/profiles/afdEndpoints@2024-02-01' = { parent: profile, name: 'afd-${namePrefix}', properties: { enabledState: 'Enabled' }, tags: tags }
 resource originGroup 'Microsoft.Cdn/profiles/originGroups@2024-02-01' = { parent: profile, name: 'og-regional-app', properties: { healthProbeSettings: { probePath: healthProbePath, probeRequestType: 'GET', probeProtocol: 'Https', probeIntervalInSeconds: 30 }, loadBalancingSettings: { sampleSize: 4, successfulSamplesRequired: 3, additionalLatencyInMilliseconds: 50 }, sessionAffinityState: 'Disabled' } }
-resource origin 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' = { parent: originGroup, name: 'origin-regional-private', properties: { enabledState: 'Enabled', hostName: originHostName, originHostHeader: empty(originHostHeader) ? originHostName : originHostHeader, httpPort: 80, httpsPort: 443, enforceCertificateNameCheck: true, priority: 1, weight: 1000, sharedPrivateLinkResource: { privateLink: { id: privateLinkServiceId }, groupId: '', privateLinkLocation: privateLinkLocation, requestMessage: 'Bicep ${namePrefix}: review and approve this Front Door private origin connection.' } } }
+resource origin 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' = [for originConfig in origins: {
+  parent: originGroup
+  name: 'origin-${originConfig.regionCode}'
+  properties: {
+    enabledState: originConfig.enabled ? 'Enabled' : 'Disabled'
+    hostName: originConfig.hostName
+    originHostHeader: empty(originConfig.originHostHeader) ? originConfig.hostName : originConfig.originHostHeader
+    httpPort: 80
+    httpsPort: 443
+    enforceCertificateNameCheck: true
+    priority: originConfig.priority
+    weight: originConfig.weight
+    sharedPrivateLinkResource: {
+      privateLink: { id: originConfig.privateLinkServiceId }
+      groupId: ''
+      privateLinkLocation: originConfig.privateLinkLocation
+      requestMessage: 'Bicep ${namePrefix}: review and approve this Front Door private origin connection.'
+    }
+  }
+}]
 resource waf 'Microsoft.Cdn/cdnWebApplicationFirewallPolicies@2024-02-01' = { name: 'waf${replace(namePrefix, '-', '')}', location: 'global', sku: { name: 'Premium_AzureFrontDoor' }, tags: tags, properties: { policySettings: { enabledState: 'Enabled', mode: wafMode }, managedRules: { managedRuleSets: [ { ruleSetType: 'Microsoft_DefaultRuleSet', ruleSetVersion: '2.1' }, { ruleSetType: 'Microsoft_BotManagerRuleSet', ruleSetVersion: '1.1' } ] } } }
 resource domain 'Microsoft.Cdn/profiles/customDomains@2024-02-01' = if (!empty(customDomainName)) { parent: profile, name: 'regional-app-domain', properties: { hostName: customDomainName, tlsSettings: { certificateType: 'ManagedCertificate', minimumTlsVersion: 'TLS12' } } }
 resource securityPolicy 'Microsoft.Cdn/profiles/securityPolicies@2024-02-01' = { parent: profile, name: 'waf-regional-app', properties: { parameters: { type: 'WebApplicationFirewall', wafPolicy: { id: waf.id }, associations: [ { domains: concat([ { id: endpoint.id } ], customDomainReady && !empty(customDomainName) ? [ { id: domain.id } ] : []), patternsToMatch: [ '/*' ] } ] } } }
