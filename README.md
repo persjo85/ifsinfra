@@ -16,7 +16,7 @@ add it to the global Front Door parameter layer when onboarding a region.
 
 Deploy global services first with an empty `regions` list. Copy its
 `managementVnetId` and jumpserver private IP to the regional parameter file.
-To add a region, deploy `infra/regional/parameters/regionN/regionN.bicepparam`,
+To add a region, deploy `infra/regional/parameters/regionN/monitoring.bicepparam`,
 then copy its `frontDoorOrigin` output into the `regions` array in
 `infra/global/parameters/front-door.bicepparam`. Run a global `what-if` before
 deploying the changed Front Door configuration. The WAF policy is global and
@@ -46,7 +46,7 @@ az bicep build --file infra/regional/main.bicep
 az deployment sub what-if \
   --location swedencentral \
   --template-file infra/regional/main.bicep \
-  --parameters infra/regional/parameters/region1/region1.bicepparam \
+  --parameters infra/regional/parameters/region1/monitoring.bicepparam \
   mysqlAdministratorPassword='REDACTED'
 ```
 
